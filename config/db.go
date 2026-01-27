@@ -24,5 +24,6 @@ func ConnectDatabase() {
 		"END IF; END $$;")
 
 	db.AutoMigrate(&models.User{})
+	db.AutoMigrate(&models.User{}, &models.Tarif{})
 	DB = db
 }
