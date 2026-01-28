@@ -38,14 +38,16 @@ func SetupRouter() *gin.Engine {
 				keuangan.POST("/tarif", controllers.CreateTarif)
 				keuangan.PUT("/tarif/:id", controllers.UpdateTarif)
 				keuangan.DELETE("/tarif/:id", controllers.DeleteTarif)
+
+				keuangan.GET("/riwayat", controllers.GetRiwayatTransaksi)
 			}
 
 			// --- 2. KASIR (Transaksi & View) ---
 			kasir := protected.Group("/kasir").Use(middleware.RoleMiddleware("kasir"))
 			{
 				kasir.GET("/tarif", controllers.GetAllTarif)
-				kasir.POST("/transaksi", controllers.CreateTransaksi)     // Modul Baru
-				kasir.GET("/riwayat", controllers.GetRiwayatTransaksi)   // Modul Baru
+				kasir.POST("/transaksi", controllers.CreateTransaksi)  // Modul Baru
+				kasir.GET("/riwayat", controllers.GetRiwayatTransaksi) // Modul Baru
 			}
 
 			// --- 3. MANAJEMEN (Monitoring) ---
