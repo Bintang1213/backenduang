@@ -23,7 +23,11 @@ func ConnectDatabase() {
 		"CREATE TYPE user_role_enum AS ENUM ('admin_keuangan', 'kasir', 'manajemen'); " +
 		"END IF; END $$;")
 
-	db.AutoMigrate(&models.User{})
-	db.AutoMigrate(&models.User{}, &models.Tarif{})
-	DB = db
+	db.AutoMigrate(
+        &models.User{}, 
+        &models.Tarif{}, 
+        &models.Transaksi{}, 
+        &models.TransaksiDetail{},
+    )
+    DB = db
 }

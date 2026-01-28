@@ -3,8 +3,8 @@ package routes
 import (
 	"gindev/controllers"
 	"gindev/middleware"
-	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"time"
 )
 
@@ -30,32 +30,29 @@ func SetupRouter() *gin.Engine {
 		protected := api.Group("/")
 		protected.Use(middleware.AuthMiddleware())
 		{
-			// --- 1. ADMIN KEUANGAN (FULL CRUD) ---
+			// --- 1. ADMIN KEUANGAN (Master Data) ---
 			keuangan := protected.Group("/keuangan").Use(middleware.RoleMiddleware("admin_keuangan"))
 			{
 				keuangan.GET("/dashboard", controllers.GetKeuanganDashboard)
-				keuangan.GET("/tarif", controllers.GetAllTarif) 
+				keuangan.GET("/tarif", controllers.GetAllTarif)
 				keuangan.POST("/tarif", controllers.CreateTarif)
 				keuangan.PUT("/tarif/:id", controllers.UpdateTarif)
 				keuangan.DELETE("/tarif/:id", controllers.DeleteTarif)
 			}
 
-			// --- 2. KASIR (HANYA VIEW TARIF) ---
+			// --- 2. KASIR (Transaksi & View) ---
 			kasir := protected.Group("/kasir").Use(middleware.RoleMiddleware("kasir"))
 			{
-				kasir.GET("/tarif", controllers.GetAllTarif) // Kasir butuh ambil data tarif untuk input pembayaran
-				kasir.GET("/transaksi", func(c *gin.Context) { 
-					c.JSON(200, gin.H{"msg": "Menu Transaksi Kasir"}) 
-				})
+				kasir.GET("/tarif", controllers.GetAllTarif)
+				kasir.POST("/transaksi", controllers.CreateTransaksi)     // Modul Baru
+				kasir.GET("/riwayat", controllers.GetRiwayatTransaksi)   // Modul Baru
 			}
 
-			// --- 3. MANAJEMEN (VIEW LAPORAN & DASHBOARD) ---
+			// --- 3. MANAJEMEN (Monitoring) ---
 			manajemen := protected.Group("/manajemen").Use(middleware.RoleMiddleware("manajemen"))
 			{
-				manajemen.GET("/tarif", controllers.GetAllTarif) // Manajemen bisa monitoring tarif
-				manajemen.GET("/laporan", func(c *gin.Context) { 
-					c.JSON(200, gin.H{"msg": "Menu Laporan Manajemen"}) 
-				})
+				manajemen.GET("/tarif", controllers.GetAllTarif)
+				manajemen.GET("/riwayat", controllers.GetRiwayatTransaksi) // Bisa lihat semua transaksi
 			}
 		}
 	}
