@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CreateTransaksi untuk menyimpan transaksi baru dengan nomor invoice urut
 func CreateTransaksi(c *gin.Context) {
 	var input struct {
 		NamaPasien       string `json:"nama_pasien" binding:"required"`
@@ -20,15 +21,13 @@ func CreateTransaksi(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap atau format salah"})
 		return
 	}
 
-	// 1. Logika Nomor Invoice Berurutan (INV/YYYYMMDD/0001)
+	// 1. Generate No Invoice Berurutan (INV/YYYYMMDD/0001)
 	tgl := time.Now().Format("20060102")
 	var count int64
-	
-	// Hitung transaksi yang sudah ada khusus hari ini saja
 	config.DB.Model(&models.Transaksi{}).
 		Where("no_invoice LIKE ?", "INV/"+tgl+"/%").
 		Count(&count)
@@ -41,7 +40,7 @@ func CreateTransaksi(c *gin.Context) {
 	var total float64
 	var details []models.TransaksiDetail
 
-	// 3. Validasi & Ambil data dari Tabel Tarif
+	// 3. Validasi & Ambil data dari Tabel Tarif (Denormalisasi)
 	for _, id := range input.LayananIDs {
 		var tarif models.Tarif
 		if err := tx.First(&tarif, id).Error; err != nil {
@@ -72,26 +71,43 @@ func CreateTransaksi(c *gin.Context) {
 	// 5. Simpan ke Database
 	if err := tx.Create(&transaksi).Error; err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal simpan transaksi"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan transaksi ke database"})
 		return
 	}
 
 	tx.Commit()
-
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Transaksi Berhasil",
-		"invoice": noInvoice,
-		"data":    transaksi,
-	})
+	c.JSON(http.StatusCreated, gin.H{"message": "Transaksi Berhasil", "data": transaksi})
 }
 
-// Fungsi untuk melihat semua riwayat transaksi
+// GetRiwayatTransaksi untuk melihat daftar semua transaksi
 func GetRiwayatTransaksi(c *gin.Context) {
 	var riwayat []models.Transaksi
-	// Preload("Details") agar data item layanan ikut muncul
 	if err := config.DB.Preload("Details").Order("created_at desc").Find(&riwayat).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data riwayat"})
 		return
 	}
 	c.JSON(http.StatusOK, riwayat)
+}
+
+// GetRingkasanPemasukan untuk melihat total uang dan total transaksi
+func GetRingkasanPemasukan(c *gin.Context) {
+	var stats struct {
+		TotalUang      float64 `json:"total_uang"`
+		TotalTransaksi int64   `json:"total_transaksi"`
+	}
+
+	// Menggunakan COALESCE agar jika data kosong tetap mengembalikan 0 bukan null
+	err := config.DB.Model(&models.Transaksi{}).
+		Select("COALESCE(SUM(total_harga), 0) as total_uang, COUNT(id) as total_transaksi").
+		Scan(&stats).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses data pemasukan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   stats,
+	})
 }
